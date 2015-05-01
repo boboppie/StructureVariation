@@ -199,6 +199,11 @@ sub run_cnvnator_on_scaffolds
  
    return($errorcode,$errormsg);
 }
+
+#------------------------------------------------------------------#
+
+# TODO create a new function to run on a list of chrom at the same time
+# e.g. ./cnvnator -root NA12878.root -chrom 1 2 3 4 X Y -tree NA12878_ali.bam
  
 #------------------------------------------------------------------#
  
