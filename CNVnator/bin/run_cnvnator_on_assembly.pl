@@ -126,7 +126,7 @@ sub run_main_program
    # REFORMAT THE FASTA FILE SO THAT THERE ARE 60 CHARACTERS PER LINE OF SEQUENCE:
    ($temp_fasta,$errorcode,$errormsg) = &make_filename($outputdir);
    if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); } 
-   system "perl /rhome/cjinfeng/HEG4_cjinfeng/Variations/SV/CNVnator/bin/reformat_fasta.pl $input_fasta $temp_fasta $outputdir";
+   system "perl ./reformat_fasta.pl $input_fasta $temp_fasta $outputdir";
  
    # RUN CNVNATOR ON ALL SCAFFOLDS IN THE INPUT FASTA FILE:
    ($errorcode,$errormsg)  = &run_cnvnator_on_scaffolds($outputdir,$temp_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize);
@@ -178,7 +178,7 @@ sub run_cnvnator_on_scaffolds
       $seqfile             = $scaffold.".fa";
       
       print STDERR "Making file $seqfile...\n";
-      system "perl /rhome/cjinfeng/HEG4_cjinfeng/Variations/SV/CNVnator/bin/get_seqs_in_list.pl $input_fasta $listfile $outputdir $seqfile";
+      system "perl ./get_seqs_in_list.pl $input_fasta $listfile $outputdir $seqfile";
       $seqfile             = $outputdir."/".$seqfile;
       # WAIT A FEW SECONDS FOR THE SEQUENCE FILE TO BE MADE (OTHERWISE WE SOMETIMES GET ERRORS):
       system "sleep 10";
