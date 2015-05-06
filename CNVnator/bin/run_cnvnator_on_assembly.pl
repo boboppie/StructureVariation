@@ -52,7 +52,7 @@ my $num_args               = $#ARGV + 1;
 if ($num_args != 6 && $num_args != 7)
 {
     print "Usage of run_cnvnator_on_assembly.pl\n\n";
-    print "perl run_cnvnator_on_assembly.pl <input_fasta> <input_bam> <output> <outputdir> <path_to_cnvnator> <windowsize> <chrom>\n";
+    print "perl run_cnvnator_on_assembly.pl <input_fasta> <input_bam> <output> <outputdir> <path_to_cnvnator> <windowsize> <scaffolds>\n";
     print "where <input_fasta> is the input fasta file,\n";
     print "      <input_bam> is the input bam file,\n";
     print "      <output> is the output file,\n";
@@ -60,7 +60,7 @@ if ($num_args != 6 && $num_args != 7)
     print "      <path_to_cnvnator> is the path to CNVnator,\n";
     print "      <windowsize> is the window size to use\n";
     print "      <windowsize> is the window size to use\n";
-    print "      <chrom> is the list of scaffold names (optional, if not specified, all scaffolds will be used)\n";
+    print "      <scaffolds> is the list of scaffold names (optional, if not specified, all scaffolds will be used)\n";
     print "For example, >perl run_cnvnator_on_assembly.pl ref.fa out.sorted.markdup.bam\n";
     print "output /lustre/scratch108/parasites/alc/StrongyloidesCNVnator\n";
     print "/nfs/users/nfs_b/bf3/bin/CNVnator_v0.2.7/src/ 100 \"1 2 X Y\"\n";
@@ -96,7 +96,7 @@ my $windowsize             = $ARGV[5];
 
 # FIND SCAFFOLD NAMES:
  
-my $scaffold             = $ARGV[6];
+my $scaffolds            = $ARGV[6];
  
 #------------------------------------------------------------------#
  
@@ -109,7 +109,7 @@ my $PRINT_TEST_DATA        = 0;   # SAYS WHETHER TO PRINT DATA USED DURING TESTI
  
 # RUN THE MAIN PART OF THE CODE:
  
-&run_main_program($outputdir,$input_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize, $scaffold);
+&run_main_program($outputdir,$input_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize, $scaffolds);
  
 print STDERR "FINISHED.\n";
  
@@ -125,7 +125,7 @@ sub run_main_program
    my $output              = $_[3]; # THE OUTPUT FILE 
    my $path_to_cnvnator    = $_[4]; # PATH TO CNVNATOR
    my $windowsize          = $_[5]; # WINDOW SIZE TO USE
-   my $scaffold            = $_[6]; # SCAFFOLD NAMES
+   my $scaffolds            = $_[6]; # SCAFFOLD NAMES
    my $errorcode;                   # RETURNED AS 0 IF THERE IS NO ERROR.
    my $errormsg;                    # RETURNED AS 'none' IF THERE IS NO ERROR. 
    my $temp_fasta;                  # A REFORMATTED VERSION OF THE FASTA FILE. 
@@ -134,13 +134,9 @@ sub run_main_program
    ($temp_fasta,$errorcode,$errormsg) = &make_filename($outputdir);
    if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); } 
    system "perl ./reformat_fasta.pl $input_fasta $temp_fasta $outputdir";
- 
-   if (not defined $scaffold) {
-       # RUN CNVNATOR ON ALL SCAFFOLDS IN THE INPUT FASTA FILE:
-       ($errorcode,$errormsg)  = &run_cnvnator_on_scaffolds($outputdir,$temp_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize);
-   } else {
-       ($errorcode,$errormsg) = &run_cnvnator_on_scaffold($outputdir,$input_bam,$output,$input_fasta,$scaffold,$path_to_cnvnator,$windowsize);
-   }
+
+   # RUN CNVNATOR ON ALL SCAFFOLDS IN THE INPUT FASTA FILE:
+   ($errorcode,$errormsg)  = &run_cnvnator_on_scaffolds($outputdir,$temp_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize, $scaffolds);
    if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
    system "rm -f $temp_fasta";
 }
@@ -157,6 +153,7 @@ sub run_cnvnator_on_scaffolds
    my $output              = $_[3]; # OUTPUT FILE
    my $path_to_cnvnator    = $_[4]; # PATH TO CNVnator
    my $windowsize          = $_[5]; # WINDOW SIZE TO USE
+   my $scaffolds           = $_[6]; # SCAFFOLD NAMES
    my $errorcode           = 0;     # RETURNED AS 0 IF THERE IS NO ERROR
    my $errormsg            = "none";# RETURNED AS 'none' IF THERE IS NO ERROR 
    my $scaffold;                    # NAME OF A SCAFFOLD 
@@ -168,12 +165,17 @@ sub run_cnvnator_on_scaffolds
    $output                 = $outputdir."/".$output;
    open(OUTPUT,">$output") || die "ERROR: run_cnvnator_on_scaffolds: cannot open output $output.\n";
    close(OUTPUT);
+
+   if (not defined $scaffolds) {
+       # GET THE NAMES OF THE SEQUENCES FROM THE FASTA FILE:
+       open(TEMP, "grep \">\" $input_fasta | cut -d\">\" -f2 | ");        
+   } else {
+       open(TEMP, "echo $scaffolds | tr \" \" \"\\n\" | "); 
+   }
  
-   # GET THE NAMES OF THE SEQUENCES FROM THE FASTA FILE:
-   open(TEMP, "grep \">\" $input_fasta | cut -d\">\" -f2 | ");
    while(<TEMP>)
    {
-      $scaffold            = $_; 
+      $scaffold            = $_;
       chomp $scaffold;
       #next unless ($scaffold eq "chr3");
       print STDERR "================================================================\n";
@@ -186,7 +188,6 @@ sub run_cnvnator_on_scaffolds
       print LISTFILE "$scaffold\n"; 
       close(LISTFILE);
       # CNVnator REQUIRES THAT YOU HAVE A FASTA FILE FOR EACH SCAFFOLD IN THE CURRENT DIRECTORY:
-      # This is not true...comment out?
       $seqfile             = $scaffold.".fa";
       
       print STDERR "Making file $seqfile...\n";
@@ -224,7 +225,7 @@ sub run_cnvnator_on_scaffold
    my $scaffold            = $_[4]; # SCAFFOLD NAME
    my $path_to_cnvnator    = $_[5]; # PATH TO CNVnator
    my $windowsize          = $_[6]; # WINDOWSIZE TO USE
-   # my $seqfile             = $_[7]; # FASTA FILE FOR THE SCAFFOLD
+   my $seqfile             = $_[7]; # FASTA FILE FOR THE SCAFFOLD
    my $errorcode           = 0;     # RETURNED AS 0 IF THERE IS NO ERROR
    my $errormsg            = "none";# RETURNED AS 'none' IF THERE IS NO ERROR 
    my $cmd;                         # COMMAND TO RUN
