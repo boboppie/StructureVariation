@@ -132,7 +132,8 @@ sub run_main_program
  
    # REFORMAT THE FASTA FILE SO THAT THERE ARE 60 CHARACTERS PER LINE OF SEQUENCE:
    ($temp_fasta,$errorcode,$errormsg) = &make_filename($outputdir);
-   if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); } 
+   if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
+   print STDERR "Formating reference genome...\n";
    system "perl ./reformat_fasta.pl $input_fasta $temp_fasta $outputdir";
 
    # RUN CNVNATOR ON ALL SCAFFOLDS IN THE INPUT FASTA FILE:
@@ -188,6 +189,7 @@ sub run_cnvnator_on_scaffolds
       print LISTFILE "$scaffold\n"; 
       close(LISTFILE);
       # CNVnator REQUIRES THAT YOU HAVE A FASTA FILE FOR EACH SCAFFOLD IN THE CURRENT DIRECTORY:
+      # TODO now create in out dir, future create them to tmp
       $seqfile             = $scaffold.".fa";
       
       print STDERR "Making file $seqfile...\n";
