@@ -49,19 +49,21 @@ use strict;
 use warnings;
  
 my $num_args               = $#ARGV + 1;
-if ($num_args != 6)
+if ($num_args != 6 && $num_args != 7)
 {
     print "Usage of run_cnvnator_on_assembly.pl\n\n";
-    print "perl run_cnvnator_on_assembly.pl <input_fasta> <input_bam> <output> <outputdir> <path_to_cnvnator> <windowsize>\n";
+    print "perl run_cnvnator_on_assembly.pl <input_fasta> <input_bam> <output> <outputdir> <path_to_cnvnator> <windowsize> <chrom>\n";
     print "where <input_fasta> is the input fasta file,\n";
     print "      <input_bam> is the input bam file,\n";
     print "      <output> is the output file,\n";
     print "      <outputdir> is the output directory for writing output files,\n";
     print "      <path_to_cnvnator> is the path to CNVnator,\n";
     print "      <windowsize> is the window size to use\n";
+    print "      <windowsize> is the window size to use\n";
+    print "      <chrom> is the list of scaffold names (optional, if not specified, all scaffolds will be used)\n";
     print "For example, >perl run_cnvnator_on_assembly.pl ref.fa out.sorted.markdup.bam\n";
     print "output /lustre/scratch108/parasites/alc/StrongyloidesCNVnator\n";
-    print "/nfs/users/nfs_b/bf3/bin/CNVnator_v0.2.7/src/ 100\n";
+    print "/nfs/users/nfs_b/bf3/bin/CNVnator_v0.2.7/src/ 100 \"1 2 X Y\"\n";
     print "Note: before running this script, you need to run:\n";
     print "setenv ROOTSYS \"/nfs/users/nfs_b/bf3/bin/root/\"\n";
     print "setenv LD_LIBRARY_PATH \${LD_LIBRARY_PATH}:\${ROOTSYS}/lib\n";
@@ -136,12 +138,11 @@ sub run_main_program
    if (not defined $scaffold) {
        # RUN CNVNATOR ON ALL SCAFFOLDS IN THE INPUT FASTA FILE:
        ($errorcode,$errormsg)  = &run_cnvnator_on_scaffolds($outputdir,$temp_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize);
-       if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
-       system "rm -f $temp_fasta";
    } else {
        ($errorcode,$errormsg) = &run_cnvnator_on_scaffold($outputdir,$input_bam,$output,$input_fasta,$scaffold,$path_to_cnvnator,$windowsize);
-       if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
    }
+   if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
+   system "rm -f $temp_fasta";
 }
  
 #------------------------------------------------------------------#
@@ -211,13 +212,6 @@ sub run_cnvnator_on_scaffolds
  
    return($errorcode,$errormsg);
 }
-
-#------------------------------------------------------------------#
-
-# TODO create a new function to run on a list of chrom at the same time
-# e.g. ./cnvnator -root NA12878.root -chrom 1 2 3 4 X Y -tree NA12878_ali.bam
- 
-#------------------------------------------------------------------#
  
 # RUN CNVNATOR ON A SCAFFOLD:
  
