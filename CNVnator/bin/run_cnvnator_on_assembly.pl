@@ -49,7 +49,7 @@ use strict;
 use warnings;
  
 my $num_args               = $#ARGV + 1;
-if ($num_args != 6 && $num_args != 7)
+if ($num_args < 6 || $num_args > 8)
 {
     print "Usage of run_cnvnator_on_assembly.pl\n\n";
     print "perl run_cnvnator_on_assembly.pl <input_fasta> <input_bam> <output> <outputdir> <path_to_cnvnator> <windowsize> <scaffolds>\n";
@@ -61,6 +61,7 @@ if ($num_args != 6 && $num_args != 7)
     print "      <windowsize> is the window size to use\n";
     print "      <windowsize> is the window size to use\n";
     print "      <scaffolds> is the list of scaffold names (optional, if not specified, all scaffolds will be used)\n";
+    print "      <tmpdir> is the directory for writing temporary files (optional, if not specified, outputdir will be used)\n";
     print "For example, >perl run_cnvnator_on_assembly.pl ref.fa out.sorted.markdup.bam\n";
     print "output /lustre/scratch108/parasites/alc/StrongyloidesCNVnator\n";
     print "/nfs/users/nfs_b/bf3/bin/CNVnator_v0.2.7/src/ 100 \"1 2 X Y\"\n";
@@ -96,7 +97,11 @@ my $windowsize             = $ARGV[5];
 
 # FIND SCAFFOLD NAMES:
  
-my $scaffolds            = $ARGV[6];
+my $scaffolds              = $ARGV[6];
+
+# FIND PATH TO TMP DIR:
+ 
+my $tmpdir                 = $ARGV[7];
  
 #------------------------------------------------------------------#
  
@@ -109,7 +114,7 @@ my $PRINT_TEST_DATA        = 0;   # SAYS WHETHER TO PRINT DATA USED DURING TESTI
  
 # RUN THE MAIN PART OF THE CODE:
  
-&run_main_program($outputdir,$input_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize, $scaffolds);
+&run_main_program($outputdir,$input_fasta,$input_bam,$output,$path_to_cnvnator,$windowsize, $scaffolds, $tmpdir);
  
 print STDERR "FINISHED.\n";
  
@@ -125,10 +130,13 @@ sub run_main_program
    my $output              = $_[3]; # THE OUTPUT FILE 
    my $path_to_cnvnator    = $_[4]; # PATH TO CNVNATOR
    my $windowsize          = $_[5]; # WINDOW SIZE TO USE
-   my $scaffolds            = $_[6]; # SCAFFOLD NAMES
+   my $scaffolds           = $_[6]; # SCAFFOLD NAMES
+   my $tmpdir              = $_[7]; # TMP DIR PATH
    my $errorcode;                   # RETURNED AS 0 IF THERE IS NO ERROR.
    my $errormsg;                    # RETURNED AS 'none' IF THERE IS NO ERROR. 
-   my $temp_fasta;                  # A REFORMATTED VERSION OF THE FASTA FILE. 
+   my $temp_fasta;                  # A REFORMATTED VERSION OF THE FASTA FILE.
+
+   # TODO 
  
    # REFORMAT THE FASTA FILE SO THAT THERE ARE 60 CHARACTERS PER LINE OF SEQUENCE:
    ($temp_fasta,$errorcode,$errormsg) = &make_filename($outputdir);
@@ -203,21 +211,22 @@ sub run_cnvnator_on_scaffolds
          $errorcode        = 1; # ERRORCODE=1
          return($errorcode,$errormsg);
       }
-      # RUN CNVNATOR FOR THIS SCAFFOLD:
-      # ($errorcode,$errormsg) = &run_cnvnator_on_scaffold($outputdir,$input_bam,$output,$input_fasta,$scaffold,$path_to_cnvnator,$windowsize,$seqfile);
-      ($errorcode,$errormsg) = &run_cnvnator_on_scaffold($outputdir,$input_bam,$output,$input_fasta,$scaffold,$path_to_cnvnator,$windowsize);
-      if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
       # DELETE THE TEMPORARY FILES:
       system "rm -f $listfile";
-      system "rm -f $seqfile";   
    }
    close(TEMP);
+
+   ($errorcode,$errormsg) = &run_cnvnator_on_scaffold($outputdir,$input_bam,$output,$input_fasta,$scaffold,$path_to_cnvnator,$windowsize);
+   if ($errorcode != 0) { ($errorcode,$errormsg) = &print_error($errormsg,$errorcode,0); }
+
+   # TODO Delete seq files before at last?
+   # system "rm -f $seqfile";
  
    return($errorcode,$errormsg);
 }
  
 # RUN CNVNATOR ON A SCAFFOLD:
- 
+# TODO If integrated to pipeline, rewrite to a bash script, run chrom in parallel, one sample on one compute node. 
 sub run_cnvnator_on_scaffold
 {
    my $outputdir           = $_[0]; # DIRECTORY TO WRITE OUTPUT FILES INTO
@@ -240,31 +249,33 @@ sub run_cnvnator_on_scaffold
    @temp                   = split(/\//,$root);
    $root                   = $temp[$#temp];
    print STDERR "Running CNVnator -tree for scaffold $scaffold ...\n";
-   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom \'$scaffold\' -tree $input_bam"; 
+   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -tree $input_bam"; 
    print STDERR "Running $cmd...\n";
    system "$cmd";
  
    # RUN -his
+   # Files with chromosome sequences are required and should reside in running directory or directory specified by -d option.
+   # Better not run
    print STDERR "Running CNVnator -his for scaffold $scaffold...\n";
-   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom \'$scaffold\' -his $windowsize"; 
+   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -his $windowsize"; 
    print STDERR "Running $cmd...\n";
    system "$cmd";
  
    # RUN -stat
    print STDERR "Running CNVnator -stat for scaffold $scaffold...\n";
-   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom \'$scaffold\' -stat $windowsize";
+   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -stat $windowsize";
    print STDERR "Running $cmd...\n";
    system "$cmd";
  
    # RUN -partition 
    print STDERR "Running CNVnator -partition for scaffold $scaffold...\n";
-   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom \'$scaffold\' -partition $windowsize"; 
+   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -partition $windowsize"; 
    print STDERR "Running $cmd...\n";
    system "$cmd";
  
    # RUN -call
    print STDERR "Running CNVnator -call for scaffold $scaffold...\n";
-   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom \'$scaffold\' -call $windowsize >> $output"; 
+   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -call $windowsize >> $output"; 
    print STDERR "Running $cmd...\n";
    system "$cmd";
  
