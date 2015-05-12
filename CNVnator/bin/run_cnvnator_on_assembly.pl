@@ -249,7 +249,7 @@ sub run_cnvnator_on_scaffold
    @temp                   = split(/\//,$root);
    $root                   = $temp[$#temp];
    print STDERR "Running CNVnator -tree for scaffold $scaffold ...\n";
-   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -tree $input_bam"; 
+   $cmd                    = $path_to_cnvnator."/cnvnator -root $root -genome $input_fasta -chrom $scaffold -tree $input_bam -unique"; 
    print STDERR "Running $cmd...\n";
    system "$cmd";
  
